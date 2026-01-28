@@ -36,9 +36,9 @@ type ProxyServer struct {
 	mu         sync.RWMutex
 }
 
-func NewProxyServer(listenAddr string, backendAddrs []string) *ProxyServer {
-	backends := make([]*Backend, len(backendAddrs))
-	for i, addr := range backendAddrs {
+func NewProxyServer(listenAddr string, backendAddress []string) *ProxyServer {
+	backends := make([]*Backend, len(backendAddress))
+	for i, addr := range backendAddress {
 		backends[i] = &Backend{
 			Address: addr,
 			Healthy: false,
@@ -104,12 +104,7 @@ func (p *ProxyServer) getHealthyBackend() *Backend {
 }
 
 func (p *ProxyServer) handleConnection(clientConn net.Conn) {
-	defer func(clientConn net.Conn) {
-		err := clientConn.Close()
-		if err != nil {
-			log.Printf("[✗] Error closing client connection: %v", err)
-		}
-	}(clientConn)
+	defer clientConn.Close()
 
 	backend := p.getHealthyBackend()
 	if backend == nil {
@@ -123,44 +118,36 @@ func (p *ProxyServer) handleConnection(clientConn net.Conn) {
 		backend.SetHealthy(false)
 		return
 	}
-	defer func(backendConn net.Conn) {
-		err := backendConn.Close()
-		if err != nil {
-			log.Printf("[✗] Error closing backend connection: %v", err)
-		}
-	}(backendConn)
+	defer backendConn.Close()
 
 	log.Printf("[C] %s -> %s", clientConn.RemoteAddr(), backend.Address)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// client -> proxy -> backend
+	// client -> backend
 	go func() {
 		defer wg.Done()
-		_, err := io.Copy(clientConn, backendConn)
+		_, err := io.Copy(backendConn, clientConn)
 		if err != nil {
-			log.Printf("[✗] Error copying data from backend to client: %v", err)
-			return
+			log.Printf("[✗] Error copying client -> backend: %v", err)
 		}
-		err = clientConn.(*net.TCPConn).CloseWrite()
+		err = backendConn.(*net.TCPConn).CloseWrite()
 		if err != nil {
-			log.Printf("[✗] Error closing client write: %v", err)
+			return
 		}
 	}()
 
-	// backend -> proxy -> client
+	// backend -> client
 	go func() {
 		defer wg.Done()
 		_, err := io.Copy(clientConn, backendConn)
 		if err != nil {
-			log.Printf("[✗] Error copying data from backend to client: %v", err)
-			return
+			log.Printf("[✗] Error copying backend -> client: %v", err)
 		}
-
 		err = clientConn.(*net.TCPConn).CloseWrite()
 		if err != nil {
-			log.Printf("[✗] Error closing client write: %v", err)
+			return
 		}
 	}()
 
@@ -222,12 +209,12 @@ func main() {
 		log.Fatal("[✗] Please specify backends with -backends flag")
 	}
 
-	backendAddrs := strings.Split(*backendsFlag, ",")
-	for i := range backendAddrs {
-		backendAddrs[i] = strings.TrimSpace(backendAddrs[i])
+	backendAddress := strings.Split(*backendsFlag, ",")
+	for i := range backendAddress {
+		backendAddress[i] = strings.TrimSpace(backendAddress[i])
 	}
 
-	proxy := NewProxyServer(*listenAddr, backendAddrs)
+	proxy := NewProxyServer(*listenAddr, backendAddress)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
