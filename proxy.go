@@ -84,7 +84,7 @@ func (p *ProxyServer) checkAllBackends() {
 			}
 
 			if !b.IsHealthy() {
-				log.Printf("[✓]  Backend %s is UP", b.Address)
+				log.Printf("[✓] Backend %s is UP", b.Address)
 			}
 			b.SetHealthy(true)
 		}(backend)
@@ -180,14 +180,11 @@ func (p *ProxyServer) Start(ctx context.Context) error {
 		}
 	}(listener)
 
-	log.Printf("----------------------------------------")
-	log.Printf("TCP Proxy running on %s", p.listenAddr)
-	log.Printf("----------------------------------------")
-	log.Printf("Backends:")
+	log.Printf("[i] TCP Proxy running on %s", p.listenAddr)
+	log.Printf("[i] Backends:")
 	for i, b := range p.backends {
-		log.Printf("   %d. %s", i+1, b.Address)
+		log.Printf("[%d] %s", i+1, b.Address)
 	}
-	log.Printf("----------------------------------------")
 
 	go p.healthCheck(ctx)
 
