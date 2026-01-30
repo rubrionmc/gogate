@@ -106,7 +106,12 @@ func (p *ProxyServer) getHealthyBackend() *Backend {
 }
 
 func (p *ProxyServer) handleConnection(clientConn net.Conn) {
-	defer clientConn.Close()
+	defer func(clientConn net.Conn) {
+		err := clientConn.Close()
+		if err != nil {
+			log.Printf("[✗] Error closing client connection: %v", err)
+		}
+	}(clientConn)
 
 	backend := p.getHealthyBackend()
 	if backend == nil {
@@ -124,7 +129,12 @@ func (p *ProxyServer) handleConnection(clientConn net.Conn) {
 		backend.SetHealthy(false)
 		return
 	}
-	defer backendConn.Close()
+	defer func(backendConn net.Conn) {
+		err := backendConn.Close()
+		if err != nil {
+			log.Printf("[✗] Error closing backend connection: %v", err)
+		}
+	}(backendConn)
 
 	log.Printf("[C] %s -> %s", clientConn.RemoteAddr(), backend.Address)
 
@@ -150,7 +160,12 @@ func (p *ProxyServer) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("listen failed: %w", err)
 	}
-	defer listener.Close()
+	defer func(listener net.Listener) {
+		err := listener.Close()
+		if err != nil {
+			log.Printf("[✗] Error closing listener: %v", err)
+		}
+	}(listener)
 
 	log.Printf("[i] TCP Proxy listening on %s", p.listenAddr)
 	for i, b := range p.backends {
