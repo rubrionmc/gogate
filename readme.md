@@ -19,8 +19,6 @@
   <p align="center">
     A simple yet powerful lightweight Go gateway for handling and routing TCP traffic.
     <br />
-    <a href="https://github.com/rubrionmc/gogate/tree/main/docs"><strong>Explore the docs »</strong></a>
-    <br />
     <br />
     <a href="https://rubrion.net/docs/howto/join">View Demo</a>
     &middot;
